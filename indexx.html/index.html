@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>2D Transformations with Math</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for LaTeX rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    label { display: block; margin: 6px 0; }
+    input[type=range] { width: 300px; }
+    #math-output { margin: 20px 0; font-size: 20px; }
+  </style>
+</head>
+<body>
+
+  <h2>2D Transformations Visualizer</h2>
+
+  <label>Transformation Type:
+    <select id="transformType">
+      <option value="translate">Translation</option>
+      <option value="scale">Scaling</option>
+      <option value="rotate">Rotation</option>
+      <option value="mirrorX">Mirror X-axis</option>
+      <option value="mirrorY">Mirror Y-axis</option>
+    </select>
+  </label>
+
+  <div id="controls">
+    <label id="tx_label">tx: <input type="range" min="-5" max="5" step="0.1" value="0" id="tx"></label>
+    <label id="ty_label">ty: <input type="range" min="-5" max="5" step="0.1" value="0" id="ty"></label>
+
+    <label id="sx_label">sx: <input type="range" min="0.1" max="3" step="0.1" value="1" id="sx"></label>
+    <label id="sy_label">sy: <input type="range" min="0.1" max="3" step="0.1" value="1" id="sy"></label>
+
+    <label id="angle_label">angle (°): <input type="range" min="-180" max="180" step="1" value="0" id="angle"></label>
+  </div>
+
+  <div id="math-output"></div>
+  <div id="plot" style="width:600px; height:600px;"></div>
+
+  <script>
+    const original = [[0, 0], [1, 0], [0.5, 1], [0, 0]];
+
+    function applyTransform(type, params) {
+      return original.map(([x, y]) => {
+        let xNew = x, yNew = y;
+        switch (type) {
+          case "translate":
+            xNew += params.tx; yNew += params.ty;
+            break;
+          case "scale":
+            xNew *= params.sx; yNew *= params.sy;
+            break;
+          case "rotate":
+            const θ = params.angle * Math.PI / 180;
+            xNew = x * Math.cos(θ) - y * Math.sin(θ);
+            yNew = x * Math.sin(θ) + y * Math.cos(θ);
+            break;
+          case "mirrorX": yNew = -y; break;
+          case "mirrorY": xNew = -x; break;
+        }
+        return [xNew, yNew];
+      });
+    }
+
+    function updatePlot() {
+      const type = document.getElementById('transformType').value;
+      const params = {
+        tx: parseFloat(document.getElementById('tx').value),
+        ty: parseFloat(document.getElementById('ty').value),
+        sx: parseFloat(document.getElementById('sx').value),
+        sy: parseFloat(document.getElementById('sy').value),
+        angle: parseFloat(document.getElementById('angle').value)
+      };
+
+      // Show relevant sliders
+      document.getElementById('tx_label').style.display = (type === 'translate') ? 'block' : 'none';
+      document.getElementById('ty_label').style.display = (type === 'translate') ? 'block' : 'none';
+      document.getElementById('sx_label').style.display = (type === 'scale') ? 'block' : 'none';
+      document.getElementById('sy_label').style.display = (type === 'scale') ? 'block' : 'none';
+      document.getElementById('angle_label').style.display = (type === 'rotate') ? 'block' : 'none';
+
+      const transformed = applyTransform(type, params);
+
+      // Plot
+      Plotly.newPlot('plot', [
+        {
+          x: original.map(p => p[0]),
+          y: original.map(p => p[1]),
+          mode: 'lines+markers',
+          name: 'Original',
+          line: { color: 'blue' }
+        },
+        {
+          x: transformed.map(p => p[0]),
+          y: transformed.map(p => p[1]),
+          mode: 'lines+markers',
+          name: 'Transformed',
+          line: { color: 'red', dash: 'dot' }
+        }
+      ], {
+        title: `2D ${type} Transformation`,
+        xaxis: { range: [-5, 5] },
+        yaxis: { range: [-5, 5] },
+        showlegend: true
+      });
+
+      // MathJax output
+      let latex = '';
+      if (type === 'translate') {
+        latex = `\\[\\begin{bmatrix}x' \\\\ y'\\end{bmatrix} = \\begin{bmatrix}x \\\\ y\\end{bmatrix} + \\begin{bmatrix}${params.tx.toFixed(1)} \\\\ ${params.ty.toFixed(1)}\\end{bmatrix}\\]`;
+      } else if (type === 'scale') {
+        latex = `\\[\\begin{bmatrix}x' \\\\ y'\\end{bmatrix} = \\begin{bmatrix}${params.sx.toFixed(1)} & 0 \\\\ 0 & ${params.sy.toFixed(1)}\\end{bmatrix} \\begin{bmatrix}x \\\\ y\\end{bmatrix}\\]`;
+      } else if (type === 'rotate') {
+        const cosA = Math.cos(params.angle * Math.PI / 180).toFixed(2);
+        const sinA = Math.sin(params.angle * Math.PI / 180).toFixed(2);
+        latex = `\\[\\begin{bmatrix}x' \\\\ y'\\end{bmatrix} = \\begin{bmatrix}${cosA} & -${sinA} \\\\ ${sinA} & ${cosA}\\end{bmatrix} \\begin{bmatrix}x \\\\ y\\end{bmatrix}\\]`;
+      } else if (type === 'mirrorX') {
+        latex = `\\[\\begin{bmatrix}x' \\\\ y'\\end{bmatrix} = \\begin{bmatrix}1 & 0 \\\\ 0 & -1\\end{bmatrix} \\begin{bmatrix}x \\\\ y\\end{bmatrix}\\]`;
+      } else if (type === 'mirrorY') {
+        latex = `\\[\\begin{bmatrix}x' \\\\ y'\\end{bmatrix} = \\begin{bmatrix}-1 & 0 \\\\ 0 & 1\\end{bmatrix} \\begin{bmatrix}x \\\\ y\\end{bmatrix}\\]`;
+      }
+
+      document.getElementById("math-output").innerHTML = latex;
+      MathJax.typesetPromise();
+    }
+
+    // Setup all events once
+    window.onload = () => {
+      document.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', updatePlot);
+      });
+      updatePlot();  // First render
+    };
+  </script>
+</body>
+</html>
